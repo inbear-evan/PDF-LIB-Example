@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title> Test PDF Generation</title>
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.4.0/dist/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.js"></script>
+    <!-- <script src="https://unpkg.com/pdf-lib@1.4.0"></script> -->
+    <!-- <script src="./pdf-lib.min.js"></script> -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/downloadjs/1.4.8/download.min.js"></script>
+    <!-- <script src="https://unpkg.com/@pdf-lib/fontkit@0.0.4"></script> -->
+</head>
+
+<body>
+    <button onclick="CreateDoc()">Create</button>
+    <button onclick="KoreaFont()">KoreaFont</button>
+    <button onclick="MergePDF()">Merge</button>
+    <button onclick="Page2DataInput()">Page2DataInput</button>
+    <button onclick="TotalPage()">TotalPage</button>
+    <button onclick="Draw()">Draw</button>
+
+    <div>
+        <input type="text" id="persent" size=10 value="50">
+        <button onclick="PersentCheck()">Persent</button>
+    </div>
+    <div>
+        <button onclick="ParsingData()">ParsingData</button>
+    </div>
+    <div>
+
+    </div>
+</body>
+<script>
+    const { PDFDocument, StandardFonts, rgb, grayscale } = PDFLib;
+
+    async function ParsingData() {
+        
+    }
+
+    async function Draw() {
+        const svgPath = describeArc(100, 100, 100, 0, 100);
+        const pdfDoc = await PDFDocument.create();
+
+        const page = pdfDoc.addPage();
+        page.moveTo(100, page.getHeight() - 5);
+
+        page.moveDown(25);
+        page.drawSvgPath(svgPath);
+
+        const pdfBytes = await pdfDoc.save();
+        download(pdfBytes, "DrawPDF.pdf", "application/pdf");
+    }
+
+    function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+        var angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+
+        return {
+            x: centerX + (radius * Math.cos(angleInRadians)),
+            y: centerY + (radius * Math.sin(angleInRadians))
+        };
+    }
+    function describeArc(x, y, radius, startAngle, endAngle) {
+
+        var start = polarToCartesian(x, y, radius, endAngle);
+        var end = polarToCartesian(x, y, radius, startAngle);
+
+        var arcSweep = endAngle - startAngle <= 180 ? "0" : "1";
+
+        var d = [
+            "M", start.x, start.y,
+            "A", radius, radius, 0, arcSweep, 0, end.x, end.y,
+        ].join(" ");
+
+        console.log(d);
+
+        return d;
+    }
+
+    async function PersentCheck() {
+        const path = "http://127.0.0.1:1000/PAGE/6.pdf";
+        const pdfBytes = await fetch(path).then(res => res.arrayBuffer());
+
+        const marioUrl = 'http://127.0.0.1:1000/ICON/GeoImg.png'
+        const marioImageBytes = await fetch(marioUrl).then(res => res.arrayBuffer())
+
+
+        const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+
+        const marioImage = await pdfDoc.embedPng(marioImageBytes);
+
+        const page = pdfDoc.getPages();
+        const testPage = page[0];
+
+
+        var data = document.getElementById("persent").value;
+        var sizeArc = 50;
+        var drawArcData = (360 * data) / 100;
+        //var data = 50;
+        const svgPath = describeArc(0, 0, sizeArc, 0, drawArcData);
+
+        testPage.drawImage(marioImage,{
+            x: 375,
+            y: 275,
+            height : 25,
+            width : 50,
+        })
+        testPage.drawText(data, {
+            x: 380,
+            y: 240,
+            size : 20,
+        });
+        testPage.drawText("/100", {
+            x: 410,
+            y: 240,
+            size : 10,
+        });
+        testPage.drawCircle({
+            x: 400,
+            y: 250,
+            size: sizeArc,
+            borderWidth: 1,
+            borderColor: grayscale(0.5),
+            opacity: 0.5,
+            borderOpacity: 0.75,
+        });
+        testPage.drawSvgPath(svgPath, {
+            x: 400,
+            y: 250,
+            size: sizeArc,
+            borderWidth: 3,
+            borderColor: rgb(0.5, 0.5, 0),
+        });
+        const pdfBytes2 = await pdfDoc.save();
+        download(pdfBytes2, "CircleDraw.pdf", "./");
+    }
+
+    async function TotalPage() {
+        const path = "http://127.0.0.1:1000/PAGE/MergePDF.pdf";
+        const pdfBytes = await fetch(path).then(res => res.arrayBuffer());
+
+        const url = 'http://127.0.0.1:1000/PAGE/testFont.ttf';
+        const fontBytes = await fetch(url).then(res => res.arrayBuffer());
+
+        const diseaseImgPath = "http://127.0.0.1:1000/ICON/8G.pdf";
+        const imgPdfBytes = await fetch(diseaseImgPath).then(res => res.arrayBuffer());
+
+        const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+        const [diseaseImg] = await pdfDoc.embedPdf(imgPdfBytes);
+        const diseaseImgDims = diseaseImg.scale(1);
+
+        pdfDoc.registerFontkit(fontkit);
+        const customFont = await pdfDoc.embedFont(fontBytes);
+        const pages = pdfDoc.getPages();
+        const firstPage = pages[1];
+        const fifthPage = pages[5];
+
+        //검체번호
+        firstPage.drawText("123456", {
+            x: 450,
+            y: 730,
+            size: 10,
+            font: customFont,
+        });
+        // 성명
+        firstPage.drawText("name", {
+            x: 450,
+            y: 710,
+            size: 10,
+            font: customFont,
+        });
+        //성별
+        firstPage.drawText("man", {
+            x: 450,
+            y: 690,
+            size: 10,
+            font: customFont,
+        });
+
+        fifthPage.drawPage(diseaseImg, {
+            ...diseaseImgDims,
+            x: 450,
+            y: 400,
+        });
+        const pdfBytes2 = await pdfDoc.save();
+        download(pdfBytes2, "TotalPageModify.pdf", "./");
+    }
+
+    async function Page2DataInput() {
+        const path = "http://127.0.0.1:1000/PAGE/2.pdf";
+        const url = 'http://127.0.0.1:1000/PAGE/testFont.ttf';
+        const pdfBytes = await fetch(path).then(res => res.arrayBuffer());
+        const fontBytes = await fetch(url).then(res => res.arrayBuffer());
+        const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+
+        pdfDoc.registerFontkit(fontkit);
+        const customFont = await pdfDoc.embedFont(fontBytes);
+        const pages = pdfDoc.getPages();
+        const firstPage = pages[0];
+        const { width, height } = firstPage.getSize();
+
+        //검체번호
+        firstPage.drawText("123456", {
+            x: 450,
+            y: 730,
+            size: 10,
+            font: customFont,
+        });
+        // 성명
+        firstPage.drawText("name", {
+            x: 450,
+            y: 710,
+            size: 10,
+            font: customFont,
+        });
+        //성별
+        firstPage.drawText("man", {
+            x: 450,
+            y: 690,
+            size: 10,
+            font: customFont,
+        });
+        const pdfBytes2 = await pdfDoc.save();
+        download(pdfBytes2, "InputDataPage2.pdf", "./");
+    }
+
+    async function CreateDoc() {
+        const pdfDoc = await PDFDocument.create();
+        const timesRomanFont = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+        const page = pdfDoc.addPage();
+        const { width, height } = page.getSize();
+        const fontSize = 30;
+        page.drawText('Creating PDFs in JavaScript is awesome!', {
+            x: 50,
+            y: height - 4 * fontSize,
+            size: fontSize,
+            font: timesRomanFont,
+            color: rgb(0, 0.53, 0.71),
+        });
+        const pdfBytes = await pdfDoc.save();
+        download(pdfBytes, "CreatePDF.pdf", "application/pdf");
+    }
+    async function KoreaFont() {
+        //const url = 'https://pdf-lib.js.org/assets/ubuntu/Ubuntu-R.ttf';
+        const url = 'http://127.0.0.1:1000/PAGE/testFont.ttf';
+        const fontBytes = await fetch(url).then(res => res.arrayBuffer());
+        const pdfDoc = await PDFDocument.create();
+
+        pdfDoc.registerFontkit(fontkit);
+        const customFont = await pdfDoc.embedFont(fontBytes);
+        const page = pdfDoc.addPage();
+        const text = '한글_English *';
+        const textSize = 35;
+        const textWidth = customFont.widthOfTextAtSize(text, textSize);
+        const textHeight = customFont.heightAtSize(textSize);
+        page.drawText(text, {
+            x: 40,
+            y: 450,
+            size: textSize,
+            font: customFont,
+            color: rgb(0, 0.53, 0.71),
+        });
+        page.drawRectangle({
+            x: 40,
+            y: 450,
+            width: textWidth,
+            height: textHeight,
+            borderColor: rgb(1, 0, 0),
+            borderWidth: 1.5,
+        });
+        const pdfBytes = await pdfDoc.save();
+        download(pdfBytes, "KoreaFont.pdf", "application/pdf");
+    }
+    async function MergePDF() {
+        const url = ["http://127.0.0.1:1000/PAGE/1.pdf",
+            "http://127.0.0.1:1000/PAGE/2.pdf",
+            "http://127.0.0.1:1000/PAGE/3.pdf",
+            "http://127.0.0.1:1000/PAGE/4.pdf",
+            "http://127.0.0.1:1000/PAGE/5.pdf",
+            "http://127.0.0.1:1000/PAGE/6.pdf",
+            "http://127.0.0.1:1000/PAGE/7.pdf",
+            "http://127.0.0.1:1000/PAGE/8.pdf",
+            "http://127.0.0.1:1000/PAGE/9.pdf",
+            "http://127.0.0.1:1000/PAGE/10.pdf",
+            "http://127.0.0.1:1000/PAGE/11.pdf",
+            "http://127.0.0.1:1000/PAGE/12.pdf"];
+
+        const pageByte = await fetch(url[0]).then(res => res.arrayBuffer());
+        const pageByte1 = await fetch(url[1]).then(res => res.arrayBuffer());
+        const pageByte2 = await fetch(url[2]).then(res => res.arrayBuffer());
+        const pageByte3 = await fetch(url[3]).then(res => res.arrayBuffer());
+        const pageByte4 = await fetch(url[4]).then(res => res.arrayBuffer());
+        const pageByte5 = await fetch(url[5]).then(res => res.arrayBuffer());
+        const pageByte6 = await fetch(url[6]).then(res => res.arrayBuffer());
+        const pageByte7 = await fetch(url[7]).then(res => res.arrayBuffer());
+        const pageByte8 = await fetch(url[8]).then(res => res.arrayBuffer());
+        const pageByte9 = await fetch(url[9]).then(res => res.arrayBuffer());
+        const pageByte10 = await fetch(url[10]).then(res => res.arrayBuffer());
+        const pageByte11 = await fetch(url[11]).then(res => res.arrayBuffer());
+
+
+        const page = await PDFDocument.load(pageByte);
+        const page1 = await PDFDocument.load(pageByte1);
+        const page2 = await PDFDocument.load(pageByte2);
+        const page3 = await PDFDocument.load(pageByte3);
+        const page4 = await PDFDocument.load(pageByte4);
+        const page5 = await PDFDocument.load(pageByte5);
+        const page6 = await PDFDocument.load(pageByte6);
+        const page7 = await PDFDocument.load(pageByte7);
+        const page8 = await PDFDocument.load(pageByte8);
+        const page9 = await PDFDocument.load(pageByte9);
+        const page10 = await PDFDocument.load(pageByte10);
+        const page11 = await PDFDocument.load(pageByte11);
+
+
+        const pdfDoc = await PDFDocument.create();
+
+        const [insertPage] = await pdfDoc.copyPages(page, [0]);
+        const [insertPage1] = await pdfDoc.copyPages(page1, [0]);
+        const [insertPage2] = await pdfDoc.copyPages(page2, [0]);
+        const [insertPage3] = await pdfDoc.copyPages(page3, [0]);
+        const [insertPage4] = await pdfDoc.copyPages(page4, [0]);
+        const [insertPage5] = await pdfDoc.copyPages(page5, [0]);
+        const [insertPage6] = await pdfDoc.copyPages(page6, [0]);
+        const [insertPage7] = await pdfDoc.copyPages(page7, [0]);
+        const [insertPage8] = await pdfDoc.copyPages(page8, [0]);
+        const [insertPage9] = await pdfDoc.copyPages(page9, [0]);
+        const [insertPage10] = await pdfDoc.copyPages(page10, [0]);
+        const [insertPage11] = await pdfDoc.copyPages(page11, [0]);
+
+
+        pdfDoc.addPage(insertPage);
+        pdfDoc.insertPage(1, insertPage1);
+        pdfDoc.insertPage(2, insertPage2);
+        pdfDoc.insertPage(3, insertPage3);
+        pdfDoc.insertPage(4, insertPage4);
+        pdfDoc.insertPage(5, insertPage5);
+        pdfDoc.insertPage(6, insertPage6);
+        pdfDoc.insertPage(7, insertPage7);
+        pdfDoc.insertPage(8, insertPage8);
+        pdfDoc.insertPage(9, insertPage9);
+        pdfDoc.insertPage(10, insertPage10);
+        pdfDoc.insertPage(11, insertPage11);
+
+
+        const pdfBytes = await pdfDoc.save();
+        download(pdfBytes, "MergePDF.pdf", "application/pdf");
+    }
+
+</script>
+
+</html>
